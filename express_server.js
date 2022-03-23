@@ -27,7 +27,11 @@ app.get('/urls', (req, res) => {
   const templateVars = {urls: urlDatabase };
   res.render("urls_index", templateVars);
 });
-
+app.post("/urls/:shortURL/delete", (req, res) => {
+  console.log(req.params)
+  delete urlDatabase[req.params.shortURL]
+  res.redirect("/urls")
+})
 app.post("/urls", (req, res) => {
   console.log(req.body);  // Log the POST request body to the console
   let randoString = generateRandomString();
