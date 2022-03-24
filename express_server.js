@@ -52,17 +52,23 @@ app.get("/u/:shortURL", (req, res) => {
 app.post('/login', (req, res) =>{
   //console.log(req.body)
   //Logic must be added so that a cookie is set as userID 
-  console.log("request body email", req.body.email)
-  
-  for (let user of users) {
-    if (req.body.email === user.email){}
-  };
-
-  let cookieID = req.cookies.userID;
-  let currentUser = users[cookieID];
-  //console.log(cookieID)
-  res.cookie("userID", currentUser)
-  res.redirect("/urls")
+  //console.log("request body email", req.body.email)
+  if (!getUserWithEmail(req.body.email)){
+    return res.send("Error: 403 that Email was not found")
+  } 
+  if (getUserWithEmail(req.body.email)) {
+    console.log(getUserWithEmail(req.body.email), "LOGGED")
+  }
+  for (let user in users) {
+    //console.log("users sanity check", user)
+    if (req.body.email === users[user].email){
+      if (req.body.password === users[user].password) {
+        res.cookie("userID", users[user].id)
+        return res.redirect("/urls")
+      }
+    }
+  }
+res.send("login Failed")
 });
 app.get('/login', (req, res) => {
   const templateVars = {username: users[req.cookies.userID]  }
@@ -71,7 +77,7 @@ app.get('/login', (req, res) => {
 app.get('/urls', (req, res) => {
   let cookieID = req.cookies.userID;
   let currentUser = users[cookieID];
-  console.log(users)
+  console.log(currentUser, "THIS IS currUSERS")
   const templateVars = {urls: urlDatabase, username: currentUser.email };
   res.render("urls_index", templateVars);
 });
@@ -116,7 +122,7 @@ app.post("/register", (req, res) => {
   }
   let randomString = generateRandomString();
   users[randomString] = {id: randomString, email: req.body.email, password: req.body.password};
-  res.cookie("userID", users[randomString].id);
+  res.cookie("userID", randomString);
   res.redirect("/urls");
 });
 app.get("/urls/:shortURL", (req, res) => {
