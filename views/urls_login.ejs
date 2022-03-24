@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -15,19 +16,16 @@
     <%- include('partials/_header') %>
 
     <main style="margin: 1em;">
-      <h3>Register</h3>
-      <form action="/register" method="POST">
-        <div class="form-group mb-2">
-          <label for="email">Enter your Email Address:</label>
-          <input class="form-control" type="text" name="email" placeholder="Email" style="width: 300px; margin: 1em">
-        </div>
-        <div>
-          <input class="form-control" type="text" name="password" placeholder="Password" style="width: 300px; margin: 1em">
-        </div>
-        <div>
-          <button type="submit" class="btn btn-primary">Submit</button>
-
-        </div>
+      <form method="POST" action="/login">
+        <p>
+          E-mail Address
+          <input class="form-control" type="text" name="email" style="width: 300px; margin: 1em"> 
+        </p>
+        <p>
+          Password
+          <input class="form-control" type="text" name="password" style="width: 300px; margin: 1em">
+          <button type="submit" class="btn btn-info">Login</button>
+        </p>
       </form>
     </main>
       <!-- Bootstrap JS -->
