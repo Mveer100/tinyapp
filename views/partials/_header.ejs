@@ -11,12 +11,12 @@
       </div>
     </div>
     <div>
-      <% if(username) { %> 
+      <% if(locals.username) { %> 
         <div>
         <form method="POST" action="/logout">
           <button type="submit" class="btn btn-info">Logout</button>  
         </form> 
-        <h2>Logged In As:<%= username %></h2>
+        <h2>Logged In As:<%= locals.username %></h2>
       </div>
       <% } else{ %>
         <form method="GET" action="/register">
