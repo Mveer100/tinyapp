@@ -1,11 +1,16 @@
 const express = require("express");
 const bodyParser = require("body-parser");
-const cookieParser = require('cookie-parser');
+const cookieSession = require('cookie-session');
 const res = require("express/lib/response");
 const { Router } = require("express");
+const bcrypt = require('bcryptjs')
+const { getUserWithEmail } = require('./helpers')
 const app = express();
 const PORT = 8080; // default port 8080
-app.use(cookieParser())
+app.use(cookieSession({
+  name: 'firstsessionever',
+  keys: ["keysuper1"]
+}));
 app.use(bodyParser.urlencoded({extended: true}));
 app.set("view engine", "ejs");
 
@@ -33,6 +38,7 @@ function generateRandomString() {
         userID: "maxaveertest"
     }
 };
+
 const users = { 
   "userRandomID": {
     id: "aJ48lW", 
@@ -42,23 +48,17 @@ const users = {
  "user2RandomID": {
     id: "user2RandomID", 
     email: "user2@example.com", 
-    password: "dishwasher-funk"
-  },
-  "maxaveertest": {id: "maxaveertest", 
-  email: "maxaveer@gmail.com", 
-  password: "VEER2IO"}
-}
-const getUserWithEmail = function(email) {
-  for (let id in users) {
-    if (users[id].email === email) {
-      return users[id];
-    }
+    password: bcrypt.hashSync("dishwasher-funk", 10)
   }
-  return null;
-};
+}
+
 app.get("/", (req, res) => {
-  res.send("Hello!");
+  if(!req.session.userID) {
+    res.redirect('/login')
+  }
+  res.redirect('/urls')
 });
+
 app.get("/u/:shortURL", (req, res) => {
  
   const shortURL = req.params.shortURL;
@@ -69,56 +69,54 @@ app.get("/u/:shortURL", (req, res) => {
   
   res.redirect(longURL);
 });
+
 app.post('/login', (req, res) =>{
   
   //Logic must be added so that a cookie is set as userID 
-  
-  if (!getUserWithEmail(req.body.email)){
-    return res.send("Error: 403 that Email was not found")
+  const user = getUserWithEmail(req.body.email, users)
+  if (!user) {
+    return res.send("Error: 403 that Email was not found");
   } 
-  if (getUserWithEmail(req.body.email)) {
-    
+  user.password
+  if (!bcrypt.compareSync(req.body.password, user.password)) {
+    return res.send("Error: 403 Password does not match");
   }
-  for (let user in users) {
-    //console.log("users sanity check", user)
-    if (req.body.email === users[user].email){
-      if (req.body.password === users[user].password) {
-        res.cookie("userID", users[user].id)
-        return res.redirect("/urls")
-      }
-    }
-  }
-res.send("login Failed")
+  req.session.userID = user.id;
+  res.redirect('/urls');
 });
+
 app.get('/login', (req, res) => {
-  const templateVars = {user: users[req.cookies.userID]  }
+  const templateVars = {user: users[req.session.userID]  }
   res.render("urls_login", templateVars)
 });
+
 app.get('/urls', (req, res) => {
   // Check to see if userID cookie exists, if not we supply resources to create an account or login.
-  if (!req.cookies.userID) {
+  if (!req.session.userID) {
     return res.send("<h3>Error: 401 no account found</h3><a href='/login'>login here</a> <a href='/register'> Register here</a>")
   }
-  const userURLS = urlsForUser(req.cookies.userID);
+  const userURLS = urlsForUser(req.session.userID);
 
-  const templateVars = {urls: userURLS, user: users[req.cookies["userID"]]};
+  const templateVars = {urls: userURLS, user: users[req.session["userID"]]};
   //Render Urls onto page, if the url's userID matches the current user
-  //Checking if our userID cookie matches the userID value found within our userDatabase object. 
+  //Checking if our userID cookie matches the userID value found within our userDatabase object.
   res.render("urls_index", templateVars);
 });
+
 app.post("/urls", (req, res) => {
   let randoString = generateRandomString();
-  urlDatabase[randoString] = {longURL: `http://${req.body.longURL}`, userID: req.cookies['userID']};
+  urlDatabase[randoString] = {longURL: `http://${req.body.longURL}`, userID: req.session['userID']};
   res.redirect(`/urls/${randoString}`);
 });
+
 app.post("/urls/:shortURL/delete", (req, res) => {
-  if(!req.cookies.userID) {
+  if(!req.session.userID) {
     return res.send("<h3>401: you are not logged in.</h3>")
   }
   if (!Object.keys(urlDatabase).includes(req.params.shortURL)) {
     return res.send("<h3>404: This shortURL does not exist.</h3>")
   }
-  const userURLS = urlsForUser(req.cookies.userID);
+  const userURLS = urlsForUser(req.session.userID);
   if (!Object.keys(userURLS).includes(req.params.shortURL)) {
     return res.send("<h3>403: you are not the owner of this link.</h3>")
   }
@@ -128,68 +126,78 @@ app.post("/urls/:shortURL/delete", (req, res) => {
 });
 
 app.post("/urls/:shortURL", (req, res) => {
-  if(!req.cookies.userID) {
+  if(!req.session.userID) {
     return res.send("<h3>401: you are not logged in.</h3>")
   }
   if (!Object.keys(urlDatabase).includes(req.params.shortURL)) {
     return res.send("<h3>404: This shortURL does not exist.</h3>")
   }
-  const userURLS = urlsForUser(req.cookies.userID);
+  const userURLS = urlsForUser(req.session.userID);
   if (!Object.keys(userURLS).includes(req.params.shortURL)) {
     return res.send("<h3>403: you are not the owner of this link.</h3>")
   }
   urlDatabase[req.params.shortURL].longURL = `http://${req.body.longURL}`;
   res.redirect(`/urls`);
 });
+
 app.get("/urls/new", (req, res) => {
-  if(!req.cookies.userID) {
+  if(!req.session.userID) {
     return res.redirect("/login");
   } 
-  const templateVars = {user: users[req.cookies["userID"]]}
+  const templateVars = {user: users[req.session["userID"]]}
   res.render("urls_new", templateVars);
 });
+
 app.get("/urls/:shortURL", (req, res) => {
-  if (!req.cookies.userID) {
+  if (!req.session.userID) {
     return res.send("<h3>401: You are not logged in</h3>")
   }
   if (!Object.keys(urlDatabase).includes(req.params.shortURL)) {
     return res.send("<h3>404: this shortURL does not exist.</h3>")
   }
-  const userURLS = urlsForUser(req.cookies.userID);
+  const userURLS = urlsForUser(req.session.userID);
   if (!Object.keys(userURLS).includes(req.params.shortURL)) {
     return res.send("<h3>403: you are not the owner of this link.</h3>")
   }
-  const templateVars = { shortURL: req.params.shortURL, longURL: urlDatabase[req.params.shortURL].longURL, user: users[req.cookies["userID"]] };
+  const templateVars = { shortURL: req.params.shortURL, longURL: urlDatabase[req.params.shortURL].longURL, user: users[req.session["userID"]] };
   res.render("urls_show", templateVars);
 });
+
 app.post('/logout', (req, res) => {
  
-  res.clearCookie('userID');
+  req.session = null;
   res.redirect('/register');
 });
+
 app.get("/register", (req, res) => {
-  const templateVars = {user: req.cookies["userID"]}
+  const templateVars = {user: req.session["userID"]}
   res.render("urls_register", templateVars)
 });
+
 app.post("/register", (req, res) => {
   if(req.body.email === "" || req.body.password === "") {
     return res.send("<h3>403: password and email cannot be empty</h3>");
   } 
   
-  if (getUserWithEmail(req.body.email)) {
+  if (getUserWithEmail(req.body.email, users)) {
     return res.send("<h3>403: Account already exists</h3>");
   }
-  let randomString = generateRandomString();
-  users[randomString] = {id: randomString, email: req.body.email, password: req.body.password};
-  res.cookie("userID", randomString);
+  const randomString = generateRandomString();
+  const hashedPassword = bcrypt.hashSync(req.body.password, 10);
+  users[randomString] = {id: randomString, email: req.body.email, password: hashedPassword};
+  req.session.userID = randomString;
+  //res.cookie("userID", randomString);
   res.redirect("/urls");
 });
+
 app.get("/urls.json", (req, res) => {
   res.json(urlDatabase);
 });
+
 app.get("/hello", (req, res) => {
   res.send("<html><body>Hello <b>World</b></body></html>\n");
 });
+
 app.listen(PORT, () => {
   console.log(`Example app listening on port ${PORT}!`);
 });
